@@ -5,12 +5,29 @@
       "method": "POST",
       "path": "/",
       "body": {
-        "username": "testuser",
-        "display_name": "Test User"
+        "action": "register",
+        "username": "testuser2",
+        "password": "test123",
+        "display_name": "Test User 2"
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "id": 1
+        "username": "testuser2"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login user",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "login",
+        "username": "testuser",
+        "password": "test123"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "username": "testuser"
       },
       "bodyMatcher": "partial"
     }

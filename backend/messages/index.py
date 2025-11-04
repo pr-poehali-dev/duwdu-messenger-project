@@ -41,8 +41,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         
         cur.execute("""
-            SELECT m.id, m.content, m.message_type, m.created_at,
-                   u.id as user_id, u.username, u.display_name, u.avatar_color
+            SELECT m.id, m.content, m.message_type, m.created_at, m.media_url,
+                   u.id as user_id, u.username, u.display_name, u.avatar_color, u.avatar_url
             FROM messages m
             INNER JOIN users u ON m.user_id = u.id
             WHERE m.chat_id = %s
@@ -56,11 +56,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'content': row[1],
                 'message_type': row[2],
                 'created_at': row[3].isoformat(),
+                'media_url': row[4],
                 'user': {
-                    'id': row[4],
-                    'username': row[5],
-                    'display_name': row[6],
-                    'avatar_color': row[7]
+                    'id': row[5],
+                    'username': row[6],
+                    'display_name': row[7],
+                    'avatar_color': row[8],
+                    'avatar_url': row[9]
                 }
             })
         
@@ -80,24 +82,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_id = body_data.get('user_id')
         content = body_data.get('content', '').strip()
         message_type = body_data.get('message_type', 'text')
+        media_url = body_data.get('media_url')
         
-        if not chat_id or not user_id or not content:
+        if not chat_id or not user_id:
             cur.close()
             conn.close()
             return {
                 'statusCode': 400,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'chat_id, user_id and content required'})
+                'body': json.dumps({'error': 'chat_id and user_id required'})
+            }
+        
+        if not content and not media_url:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'content or media_url required'})
             }
         
         cur.execute(
-            "INSERT INTO messages (chat_id, user_id, content, message_type) VALUES (%s, %s, %s, %s) RETURNING id, created_at",
-            (chat_id, user_id, content, message_type)
+            "INSERT INTO messages (chat_id, user_id, content, message_type, media_url) VALUES (%s, %s, %s, %s, %s) RETURNING id, created_at",
+            (chat_id, user_id, content or '', message_type, media_url)
         )
         message = cur.fetchone()
         
         cur.execute(
-            "SELECT id, username, display_name, avatar_color FROM users WHERE id = %s",
+            "SELECT id, username, display_name, avatar_color, avatar_url FROM users WHERE id = %s",
             (user_id,)
         )
         user = cur.fetchone()
@@ -111,12 +123,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'chat_id': chat_id,
             'content': content,
             'message_type': message_type,
+            'media_url': media_url,
             'created_at': message[1].isoformat(),
             'user': {
                 'id': user[0],
                 'username': user[1],
                 'display_name': user[2],
-                'avatar_color': user[3]
+                'avatar_color': user[3],
+                'avatar_url': user[4]
             }
         }
         
