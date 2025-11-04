@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Get user chats",
+      "method": "GET",
+      "path": "/?user_id=1",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create new channel",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "name": "Test Channel",
+        "type": "channel",
+        "user_id": 1
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "name": "Test Channel"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

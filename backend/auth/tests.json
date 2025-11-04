@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Register new user",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "username": "testuser",
+        "display_name": "Test User"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "id": 1
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
