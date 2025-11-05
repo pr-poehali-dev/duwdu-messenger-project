@@ -1,6 +1,6 @@
 '''
-Business: Send and retrieve messages in chats
-Args: event with httpMethod, queryStringParameters with chat_id, body for sending messages
+Business: Send, retrieve, and delete messages in chats
+Args: event with httpMethod, queryStringParameters with chat_id/message_id, body for sending messages
 Returns: HTTP response with messages list or sent message data
 '''
 
@@ -17,7 +17,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
                 'Access-Control-Max-Age': '86400'
             },
@@ -45,7 +45,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                    u.id as user_id, u.username, u.display_name, u.avatar_color, u.avatar_url
             FROM messages m
             INNER JOIN users u ON m.user_id = u.id
-            WHERE m.chat_id = %s
+            WHERE m.chat_id = %s AND m.removed_at IS NULL
             ORDER BY m.created_at ASC
         """, (chat_id,))
         
@@ -73,6 +73,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
             'body': json.dumps(messages),
+            'isBase64Encoded': False
+        }
+    
+    if method == 'DELETE':
+        params = event.get('queryStringParameters', {}) if event.get('queryStringParameters') else {}
+        body_data = json.loads(event.get('body', '{}')) if event.get('body') else {}
+        message_id = params.get('message_id') or body_data.get('message_id')
+        user_id = params.get('user_id') or body_data.get('user_id')
+        
+        if not message_id or not user_id:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'message_id and user_id required'})
+            }
+        
+        cur.execute(
+            "UPDATE messages SET removed_at = CURRENT_TIMESTAMP WHERE id = %s AND user_id = %s RETURNING id",
+            (message_id, user_id)
+        )
+        deleted = cur.fetchone()
+        
+        if not deleted:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 404,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'Message not found or you are not the owner'})
+            }
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            'statusCode': 200,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'success': True, 'message_id': message_id}),
             'isBase64Encoded': False
         }
     
